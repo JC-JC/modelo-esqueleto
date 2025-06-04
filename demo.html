@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Esqueleto Humano 3D Interactivo</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; }
+    canvas { display: block; }
+    #info-hueso {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-size: 18px;
+      font-family: sans-serif;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="info-hueso">🦴 Haz clic sobre un hueso para ver su nombre y descripción</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+  let scene, camera, renderer, model, controls;
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  const infoHueso = document.getElementById('info-hueso');
+
+  // Diccionario de descripciones anatómicas
+  const huesosInfo = {
+    head: "Cráneo: protege el cerebro y forma la cabeza.",
+    spine_03: "Columna vertebral: soporte del tronco y protección de la médula espinal.",
+    pelvis: "Pelvis: estructura ósea que conecta el tronco con las piernas.",
+    upperarm_l: "Húmero izquierdo: hueso largo del brazo.",
+    upperarm_r: "Húmero derecho: hueso largo del brazo.",
+    lowerarm_l: "Radio y cúbito izquierdos: huesos del antebrazo.",
+    lowerarm_r: "Radio y cúbito derechos: huesos del antebrazo.",
+    thigh_l: "Fémur izquierdo: el hueso más largo del cuerpo, en el muslo.",
+    thigh_r: "Fémur derecho: el hueso más largo del cuerpo, en el muslo.",
+    calf_l: "Tibia y peroné izquierdos: huesos de la parte inferior de la pierna.",
+    calf_r: "Tibia y peroné derechos: huesos de la parte inferior de la pierna.",
+    hand_l: "Mano izquierda: contiene huesos como metacarpos y falanges.",
+    hand_r: "Mano derecha: contiene huesos como metacarpos y falanges.",
+    foot_l: "Pie izquierdo: soporte y locomoción, compuesto por tarso y metatarso.",
+    foot_r: "Pie derecho: soporte y locomoción, compuesto por tarso y metatarso."
+  };
+
+  // Crear escena
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x111111);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 1, 5);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+
+  // Luces
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  directionalLight.position.set(2, 3, 5);
+  scene.add(directionalLight);
+
+  // Cargar modelo
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    'https://jc-jc.github.io/modelo-esqueleto/3d_esqueleto_humano.glb',
+    function (gltf) {
+      model = gltf.scene;
+      model.scale.set(0.01, 0.01, 0.01);
+      model.rotation.y = Math.PI;
+      scene.add(model);
+	  
+	  console.log("Objetos detectados en el modelo:");
+model.traverse(child => {
+  if (child.isMesh) {
+    console.log(child.name);
+  }
+});
+
+
+      // Marcar los nombres de los huesos
+      model.traverse(child => {
+        if (child.isMesh) {
+          child.userData.nombre = child.name;
+        }
+      });
+
+      // Centrado automático
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = camera.fov * (Math.PI / 180);
+      const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+      camera.position.set(center.x, center.y, cameraZ * 1.5);
+      camera.lookAt(center);
+      controls.target.copy(center);
+      controls.update();
+    },
+    undefined,
+    function (error) {
+      console.error('Error al cargar el modelo:', error);
+    }
+  );
+
+  // Clic sobre hueso
+  renderer.domElement.addEventListener('click', function (event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(model.children, true);
+
+    if (intersects.length > 0) {
+      const obj = intersects[0].object;
+      const nombre = obj.userData.nombre || obj.name || "Desconocido";
+      const descripcion = huesosInfo[nombre.toLowerCase()] || "No hay descripción disponible para este hueso.";
+      infoHueso.textContent = `🦴 ${nombre} — ${descripcion}`;
+    }
+  });
+
+  // Responsivo
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Animación
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
