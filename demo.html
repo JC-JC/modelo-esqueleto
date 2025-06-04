@@ -15,12 +15,13 @@
       font-size: 18px;
       font-family: sans-serif;
       padding: 10px;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
 
-<div id="info-hueso">🦴 Haz clic sobre un hueso para ver su nombre y descripción</div>
+<div id="info-hueso">🦴 Haz clic o toca un hueso para ver su nombre y descripción</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -32,26 +33,17 @@
   const mouse = new THREE.Vector2();
   const infoHueso = document.getElementById('info-hueso');
 
-  // Diccionario de descripciones anatómicas
+  // Diccionario de huesos conocidos
   const huesosInfo = {
-    head: "Cráneo: protege el cerebro y forma la cabeza.",
-    spine_03: "Columna vertebral: soporte del tronco y protección de la médula espinal.",
-    pelvis: "Pelvis: estructura ósea que conecta el tronco con las piernas.",
-    upperarm_l: "Húmero izquierdo: hueso largo del brazo.",
-    upperarm_r: "Húmero derecho: hueso largo del brazo.",
-    lowerarm_l: "Radio y cúbito izquierdos: huesos del antebrazo.",
-    lowerarm_r: "Radio y cúbito derechos: huesos del antebrazo.",
-    thigh_l: "Fémur izquierdo: el hueso más largo del cuerpo, en el muslo.",
-    thigh_r: "Fémur derecho: el hueso más largo del cuerpo, en el muslo.",
-    calf_l: "Tibia y peroné izquierdos: huesos de la parte inferior de la pierna.",
-    calf_r: "Tibia y peroné derechos: huesos de la parte inferior de la pierna.",
-    hand_l: "Mano izquierda: contiene huesos como metacarpos y falanges.",
-    hand_r: "Mano derecha: contiene huesos como metacarpos y falanges.",
-    foot_l: "Pie izquierdo: soporte y locomoción, compuesto por tarso y metatarso.",
-    foot_r: "Pie derecho: soporte y locomoción, compuesto por tarso y metatarso."
+    "Object_23": "Cráneo: protege el cerebro.",
+    "Object_17": "Fémur izquierdo: el hueso más largo del cuerpo.",
+    "Object_12": "Húmero derecho: hueso largo del brazo.",
+    "Object_45": "Pelvis: conecta la columna con las piernas.",
+    "Object_33": "Columna vertebral: soporte del cuerpo.",
+    // Agrega más según vayas detectando
   };
 
-  // Crear escena
+  // Crear escena y cámara
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x111111);
 
@@ -83,16 +75,8 @@
       model.scale.set(0.01, 0.01, 0.01);
       model.rotation.y = Math.PI;
       scene.add(model);
-	  
-	  console.log("Objetos detectados en el modelo:");
-model.traverse(child => {
-  if (child.isMesh) {
-    console.log(child.name);
-  }
-});
 
-
-      // Marcar los nombres de los huesos
+      // Nombrar objetos
       model.traverse(child => {
         if (child.isMesh) {
           child.userData.nombre = child.name;
@@ -119,10 +103,20 @@ model.traverse(child => {
     }
   );
 
-  // Clic sobre hueso
-  renderer.domElement.addEventListener('click', function (event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  // Función para clic y touch
+  function detectarHueso(event) {
+    let x, y;
+
+    if (event.touches && event.touches.length > 0) {
+      x = event.touches[0].clientX;
+      y = event.touches[0].clientY;
+    } else {
+      x = event.clientX;
+      y = event.clientY;
+    }
+
+    mouse.x = (x / window.innerWidth) * 2 - 1;
+    mouse.y = -(y / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(model.children, true);
@@ -130,12 +124,16 @@ model.traverse(child => {
     if (intersects.length > 0) {
       const obj = intersects[0].object;
       const nombre = obj.userData.nombre || obj.name || "Desconocido";
-      const descripcion = huesosInfo[nombre.toLowerCase()] || "No hay descripción disponible para este hueso.";
+      const descripcion = huesosInfo[nombre] || "No hay descripción disponible para este hueso.";
       infoHueso.textContent = `🦴 ${nombre} — ${descripcion}`;
     }
-  });
+  }
 
-  // Responsivo
+  // Escuchar clic y touch
+  renderer.domElement.addEventListener('click', detectarHueso, false);
+  renderer.domElement.addEventListener('touchstart', detectarHueso, false);
+
+  // Responsive
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
